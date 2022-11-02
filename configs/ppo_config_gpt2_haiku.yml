@@ -5,7 +5,7 @@ model:
   num_layers_unfrozen: 2  # Number of bottom layers to freeze during training
 
 train:
-  seq_length: 48  # Size of LM context
+  seq_length: 36  # Size of LM context
   epochs: 1000  # Train for max(epochs, total_steps)
   total_steps: 10000  # Train for max(epochs, total_steps)
   batch_size: 128  # batch size
@@ -13,12 +13,12 @@ train:
   lr_ramp_steps: 100  # learning rate warm up
   lr_decay_steps: 79000  # learning rate decay
   weight_decay: 1.0e-6  # weight decay param
-  learning_rate_init: 1.412e-4  # init learning rate
-  learning_rate_target: 1.412e-4  # target final learning rate
+  learning_rate_init: 1e-5 # was 1.412e-4  # init learning rate
+  learning_rate_target: 1e-5 # was 1.412e-4  # target final learning rate
   opt_betas: [0.9, 0.95] # adam betas
 
   checkpoint_interval: 10000  # checkpoint interval
-  eval_interval: 16  # eval interval
+  eval_interval: 50 # was 16  # eval interval
 
   pipeline: "PPOPipeline"  # prompt pipeline to load
   orchestrator: "PPOOrchestrator"  # orchestrator to load
@@ -29,16 +29,16 @@ method:
   chunk_size: 128  # Number of rollouts to collect in one loop of orchestrator
   ppo_epochs: 4  # Number of ppo epochs
   init_kl_coef: 0.2  # init kl coefficient
-  target: 6  # target kl coefficient, set None for fixed kl coef
+  target: 6  # target kl coefficient, set none (not None) for fixed kl coef -> use LOWERCASE
   horizon: 10000  # PPO horizon
-  gamma: 1  # PPO discount
+  gamma: 0.9  # was 1  # PPO discount
   lam: 0.95  # PPO lambda
   cliprange: 0.2  # clip range
   cliprange_value: 0.2  # clip range
   vf_coef: 2.3  # value term weight
   gen_kwargs:
-    max_length: 48  # LM max sample gen length
-    min_length: 48  # LM min sample gen length
+    max_length: 36 # was 48  # LM max sample gen length
+    min_length: 5 # was 48  # LM min sample gen length
     top_k: 0.0  # top k
-    top_p: 1.0  # top p
+    top_p: 0.9 # was 1.0  # top p
     do_sample: True  # sample

@@ -7,7 +7,7 @@ from trlx.model.accelerate_base_model import AccelerateRLModel
 from trlx.model.nn.ppo_models import GPTHydraHeadWithValueModel
 from trlx.pipeline.ppo_pipeline import PPORolloutStorage
 from trlx.utils.modeling import clip_by_value, logprobs_from_logits, whiten
-
+import torch.nn.functional as F
 
 class AdaptiveKLController:
     def __init__(self, init_kl_coef, target, horizon):
@@ -48,14 +48,14 @@ class AcceleratePPOModel(AccelerateRLModel):
         )
 
         self.store.clear_history()
-        if config.method.target is not None:
+        if config.method.target not in [None, 'None', 'none']:
             self.kl_ctl = AdaptiveKLController(
                 config.method.init_kl_coef, config.method.target, config.method.horizon
             )
         else:
             self.kl_ctl = FixedKLController(config.method.init_kl_coef)
 
-        if config.method.target is not None:
+        if config.method.target not in [None, 'None', 'none']:
             self.kl_ctl = AdaptiveKLController(
                 config.method.init_kl_coef, config.method.target, config.method.horizon
             )
@@ -76,7 +76,7 @@ class AcceleratePPOModel(AccelerateRLModel):
     def loss(self, batch):
         query_tensors = batch.query_tensors.to(self.accelerator.device)
         response_tensors = batch.response_tensors.to(self.accelerator.device)
-        all_logprobs = batch.logprobs.to(self.accelerator.device)
+        all_logprobs = batch.logprobs.to(self.accelerator.device)  # it's not saving the logits
         all_values = batch.values.to(self.accelerator.device)
         all_rewards = batch.rewards.to(self.accelerator.device)
 
@@ -131,7 +131,7 @@ class AcceleratePPOModel(AccelerateRLModel):
         vf_losses2 = (vpredclipped - returns) ** 2
         vf_loss = 0.5 * torch.sum(torch.max(vf_losses1, vf_losses2) * mask) / mask.sum()
 
-        kl = logprob - all_logprobs
+        kl = logprob - all_logprobs  # GS: this is NOT THE KL, IT"S LOG(NEWPOLICY/OLDPOLICY) over OLD action?
         # Record mean_kl for kl coef adjustment
         self.mean_kl = torch.mean(torch.sum(kl, dim=-1)).item()
         ratio = torch.exp(kl)
@@ -146,10 +146,22 @@ class AcceleratePPOModel(AccelerateRLModel):
         pg_loss = torch.sum(torch.max(pg_losses, pg_losses2) * mask) / mask.sum()
         loss = pg_loss + self.config.method.vf_coef * vf_loss
 
+        # GS
+        def KL_from_log(log_p, log_q):  # GS: to verify
+            p = log_p.exp()
+            return (p * (log_p - log_q)).sum(-1)
+
+        current_logprobs = logits[:,-gen_len-1:-1,:].log_softmax(-1)
+        old_logprobs = batch.logits.to(self.accelerator.device)[:,-gen_len-1:-1,:].log_softmax(-1)
+        actual_kl = F.kl_div(current_logprobs, old_logprobs, log_target=True, reduction='none').sum(-1).mean()
+
         stats = {
             "loss": loss,
             "pg_loss": pg_loss,
             "vf_loss": vf_loss,
+            "actual_kl": actual_kl.mean(),
+            "mean_fake_kl": self.mean_kl,
+            "H": (-current_logprobs*current_logprobs.exp()).sum(-1).mean(),
         }
 
         return loss, stats

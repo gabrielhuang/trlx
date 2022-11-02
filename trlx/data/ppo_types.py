@@ -32,6 +32,16 @@ class PPORLElement:
 
 
 @dataclass
+class PPORLElementWithLogits:
+    query_tensor: TensorType["query_size"]
+    response_tensor: TensorType["response_size"]
+    logprobs: TensorType["response_size", "vocab_size"]
+    values: TensorType["response_size"]
+    rewards: TensorType["response_size"]
+    logits: TensorType["response_size", "vocab_size"]
+
+
+@dataclass
 class PPORLBatch:
     """
     A batched version of the PPORLElement. See PPORLElement for more details on individual fields.
@@ -57,3 +67,13 @@ class PPORLBatch:
     logprobs: TensorType["batch_size", "response_size", "vocab_size"]
     values: TensorType["batch_size", "response_size"]
     rewards: TensorType["batch_size", "response_size"]
+
+@dataclass
+class PPORLBatchWithLogits:
+
+    query_tensors: TensorType["batch_size", "query_size"]
+    response_tensors: TensorType["batch_size", "response_size"]
+    logprobs: TensorType["batch_size", "response_size", "vocab_size"]
+    values: TensorType["batch_size", "response_size"]
+    rewards: TensorType["batch_size", "response_size"]
+    logits: TensorType["batch_size", "response_size", "vocab_size"]

@@ -18,6 +18,9 @@ if importlib.util.find_spec("rich") is not None:
 else:
     from tqdm import tqdm
 
+from pytz import timezone
+from datetime import datetime
+
 
 @register_model
 class AccelerateRLModel(BaseRLModel):
@@ -63,13 +66,18 @@ class AccelerateRLModel(BaseRLModel):
         for m in gpt_blocks_to_freeze:
             m.requires_grad_(False)
 
+        # Get local time info
+        mtl = timezone('Canada/Eastern')
+        local_datetime = datetime.now(mtl)
+        local_datetime_str = local_datetime.strftime('%b-%d-%Hh%M')
+
         if self.accelerator.is_main_process:
             self.accelerator.init_trackers(
                 project_name=self.config.train.project_name,
                 config=self.config.to_dict(),
                 init_kwargs={
                     "wandb": {
-                        "name": f"{config.model.model_path}",
+                        "name": f"{config.model.model_path}_{local_datetime_str}",
                         "mode": "disabled"
                         if os.environ.get("debug", False)
                         else "online",

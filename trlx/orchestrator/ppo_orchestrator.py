@@ -2,7 +2,7 @@ from typing import Callable
 
 import torch
 from trlx.data.accelerate_base_datatypes import PromptBatch
-from trlx.data.ppo_types import PPORLElement
+from trlx.data.ppo_types import PPORLElement, PPORLElementWithLogits
 from trlx.model import BaseRLModel
 from trlx.model.nn.ppo_models import GPTHeadWithValueModel, GPTHydraHeadWithValueModel
 from trlx.orchestrator import Orchestrator, register_orchestrator
@@ -108,16 +108,18 @@ class PPOOrchestrator(Orchestrator):
             all_logprobs = all_logprobs.cpu()
             all_values = all_values.cpu()
             all_rewards = all_rewards.cpu()
+            all_logits = logits.cpu()
 
             exp_time = clock.tick()
 
             new_ppo_rl_elements = [
-                PPORLElement(
+                PPORLElementWithLogits(
                     query_tensor=query_tensors[i, :],
                     response_tensor=response_tensors[i, :],
                     logprobs=all_logprobs[i, :],
                     values=all_values[i, :],
                     rewards=all_rewards[i, :],
+                    logits=all_logits[i, :]
                 )
                 for i in range(query_tensors.size()[0])
             ]
